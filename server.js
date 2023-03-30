@@ -64,6 +64,41 @@ io.on("connection", async (socket) => {
 
         io.to(to.socket_id).emit("new_friend_request", {});
     });
+
+    socket.on("accept_request", async (data) => {
+        // accept friend request => add ref of each other in friends array
+        console.log(data);
+        const request_doc = await FriendRequest.findById(data.request_id);
+
+        console.log(request_doc);
+
+        const sender = await User.findById(request_doc.sender);
+        const receiver = await User.findById(request_doc.recipient);
+
+        sender.friends.push(request_doc.recipient);
+        receiver.friends.push(request_doc.sender);
+
+        await receiver.save({ new: true, validateModifiedOnly: true });
+        await sender.save({ new: true, validateModifiedOnly: true });
+
+        await FriendRequest.findByIdAndDelete(data.request_id);
+
+        // delete this request doc
+        // emit event to both of them
+
+        // emit event request accepted to both
+        io.to(sender.socket_id).emit("request_accepted", {
+            message: "Friend Request Accepted",
+        });
+        io.to(receiver.socket_id).emit("request_accepted", {
+            message: "Friend Request Accepted",
+        });
+    });
+
+    socket.on("end", function () {
+        console.log("closing connection");
+        socket.disconnect(0);
+    });
 });
 
 process.on("uncaughtRejection", (err) => {
